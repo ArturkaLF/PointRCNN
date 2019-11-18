@@ -19,6 +19,31 @@ from tools.train_utils.fastai_optim import OptimWrapper
 from tools.train_utils import learning_schedules_fastai as lsf
 
 
+
+
+
+
+import apex
+
+try:
+    from apex import amp
+    APEX_AVAILABLE = True
+except ModuleNotFoundError:
+    APEX_AVAILABLE = False
+
+
+
+
+
+
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+
+
+
+
+
+
+
 parser = argparse.ArgumentParser(description="arg parser")
 parser.add_argument('--cfg_file', type=str, default='cfgs/default.yaml', help='specify the config for training')
 parser.add_argument("--train_mode", type=str, default='rpn', required=True, help="specify the training mode")
@@ -89,9 +114,13 @@ def create_optimizer(model):
 
     if cfg.TRAIN.OPTIMIZER == 'adam':
         optimizer = optim.Adam(model.parameters(), lr=cfg.TRAIN.LR, weight_decay=cfg.TRAIN.WEIGHT_DECAY)
+
+
     elif cfg.TRAIN.OPTIMIZER == 'sgd':
         optimizer = optim.SGD(model.parameters(), lr=cfg.TRAIN.LR, weight_decay=cfg.TRAIN.WEIGHT_DECAY,
                               momentum=cfg.TRAIN.MOMENTUM)
+
+
     elif cfg.TRAIN.OPTIMIZER == 'adam_onecycle':
         def children(m: nn.Module):
             return list(m.children())
@@ -111,6 +140,7 @@ def create_optimizer(model):
         if cfg.RPN.ENABLED and cfg.RPN.FIXED:
             for param in model.rpn.parameters():
                 param.requires_grad = False
+
     else:
         raise NotImplementedError
 
@@ -190,14 +220,41 @@ if __name__ == "__main__":
     # tensorboard log
     tb_log = SummaryWriter(log_dir=os.path.join(root_result_dir, 'tensorboard'))
 
+
+
+
+
+
+
+
+
     # create dataloader & network & optimizer
     train_loader, test_loader = create_dataloader(logger)
-    model = PointRCNN(num_classes=train_loader.dataset.num_class, use_xyz=True, mode='TRAIN')
+    model = PointRCNN(num_classes=train_loader.dataset.num_class, use_xyz=True, mode='TRAIN').to(device)
     optimizer = create_optimizer(model)
 
-    if args.mgpus:
-        model = nn.DataParallel(model)
-    model.cuda()
+    # if args.mgpus:
+    #     model = nn.DataParallel(model)
+    # model.cuda()
+
+
+
+
+
+
+
+
+    model, optimizer = amp.initialize(model, optimizer, opt_level="O2")
+
+
+
+
+
+
+
+
+
+
 
     # load checkpoint if it is possible
     start_epoch = it = 0
@@ -247,7 +304,7 @@ if __name__ == "__main__":
         train_loader,
         test_loader,
         ckpt_save_interval=args.ckpt_save_interval,
-        lr_scheduler_each_iter=(cfg.TRAIN.OPTIMIZER == 'adam_onecycle')
+        lr_scheduler_each_iter=(cfg.TRAIN.OPTIMIZER == 'adam')
     )
 
     logger.info('**********************End training**********************')

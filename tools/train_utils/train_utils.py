@@ -8,6 +8,16 @@ import torch.optim.lr_scheduler as lr_sched
 import math
 
 
+
+import apex
+
+try:
+    from apex import amp
+    APEX_AVAILABLE = True
+except ModuleNotFoundError:
+    APEX_AVAILABLE = False
+
+
 logging.getLogger(__name__).addHandler(logging.StreamHandler())
 cur_logger = logging.getLogger(__name__)
 
@@ -131,7 +141,19 @@ class Trainer(object):
         self.optimizer.zero_grad()
         loss, tb_dict, disp_dict = self.model_fn(self.model, batch)
 
-        loss.backward()
+
+
+
+
+
+        with amp.scale_loss(loss, self.optimizer) as scaled_loss:
+            loss.backward() 
+
+
+
+
+
+
         clip_grad_norm_(self.model.parameters(), self.grad_norm_clip)
         self.optimizer.step()
 
@@ -187,19 +209,19 @@ class Trainer(object):
                 for cur_it, batch in enumerate(train_loader):
                     if lr_scheduler_each_iter:
                         self.lr_scheduler.step(it)
-                        cur_lr = float(self.optimizer.lr)
-                        self.tb_log.add_scalar('learning_rate', cur_lr, it)
+                        # cur_lr = float(self.optimizer.lr)
+                        # self.tb_log.add_scalar('learning_rate', cur_lr, it)
                     else:
                         if self.lr_warmup_scheduler is not None and epoch < self.warmup_epoch:
                             self.lr_warmup_scheduler.step(it)
-                            cur_lr = self.lr_warmup_scheduler.get_lr()[0]
-                        else:
-                            cur_lr = self.lr_scheduler.get_lr()[0]
+                        #     cur_lr = self.lr_warmup_scheduler.get_lr()[0]
+                        # else:
+                        #     cur_lr = self.lr_scheduler.get_lr()[0]
 
                     loss, tb_dict, disp_dict = self._train_it(batch)
                     it += 1
 
-                    disp_dict.update({'loss': loss, 'lr': cur_lr})
+                    # disp_dict.update({'loss': loss, 'lr': cur_lr})
 
                     # log to console and tensorboard
                     pbar.update()
@@ -209,7 +231,7 @@ class Trainer(object):
 
                     if self.tb_log is not None:
                         self.tb_log.add_scalar('train_loss', loss, it)
-                        self.tb_log.add_scalar('learning_rate', cur_lr, it)
+                        # self.tb_log.add_scalar('learning_rate', cur_lr, it)
                         for key, val in tb_dict.items():
                             self.tb_log.add_scalar('train_' + key, val, it)
 
