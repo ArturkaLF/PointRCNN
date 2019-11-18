@@ -1,0 +1,19 @@
+All time test (for training)
+
+epochs = 3
+
+batchSize = 256
+opt_level_O0 = 68.7595
+opt_level_O1 = 38.4971
+opt_level_O2 = 35.9225
+
+batchSize = 32
+opt_level_O0 = 112.5828
+opt_level_O1 = 151.5611
+opt_level_O2 = 120.8937 
+
+batchSize = 64 
+opt_level_O0 = 85.4001
+opt_level_O1 = 82.7084
+opt_level_O2 = 68.1571 
+
